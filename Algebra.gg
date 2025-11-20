@@ -1,16 +1,297 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="utf-8" />
   <title>Austin's Game Hub</title>
   <style>
-    body { text-align:center; font-family:Arial; }
-    a { display:block; margin:20px; font-size:24px; }
+    body { font-family: Arial, Helvetica, sans-serif; background:#0b1220; color:#e6eef8; text-align:center; padding:40px; }
+    h1 { font-size:32px; margin-bottom:6px; }
+    .box { background:#0f1724; border:2px solid #1f2a3a; padding:30px; display:inline-block; border-radius:10px; }
+    a { display:block; margin:16px 0; padding:12px 20px; background:#2b6ea3; color:white; text-decoration:none; border-radius:8px; width:240px; margin-left:auto; margin-right:auto; }
+    a:hover { background:#3b86cf; }
+    p.small { color:#9fb6d8; font-size:14px; }
   </style>
 </head>
 <body>
-  <h1>Welcome to Austin's Game Hub</h1>
+  <div class="box">
+    <h1>Austin's Game Hub</h1>
+    <p class="small">Original games inspired by Crossy Road & a tiny Minecraft-like sandbox</p>
+    <a href="crossy.html" target="_blank">Play Pixel Crossing (Crossy-style)</a>
+    <a href="minicraft.html" target="_blank">Play MiniCraftLite (block sandbox)</a>
+  </div>
+</body>
+</html>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Pixel Crossing</title>
+  <style>
+    body { background:#071029; margin:0; display:flex; align-items:center; justify-content:center; height:100vh; color:#fff; font-family:Arial,Helvetica,sans-serif; }
+    canvas { background: linear-gradient(#87CEEB,#87CEEB 60%, #7ec850 60%); display:block; border:6px solid #123249; box-shadow:0 8px 20px rgba(0,0,0,0.6); }
+    #ui { position:fixed; top:12px; left:12px; color:#fff; font-weight:bold; }
+    #restart { position:fixed; top:12px; right:12px; }
+    button { padding:6px 12px; border-radius:6px; border:none; background:#1f6b9a; color:white; cursor:pointer; }
+  </style>
+</head>
+<body>
+  <div id="ui">Score: <span id="score">0</span></div>
+  <div id="restart"><button onclick="location.reload()">Restart</button></div>
+  <canvas id="c" width="400" height="600"></canvas>
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
 
-  <a href="flappy.html">Play Flappy Bird</a>
-  <a href="fnaf.html">Play FNAF Mini Game</a>
+    const ROW_HEIGHT = 60;
+    const LANES = 8; // lanes between grass rows
+    const PLAYER_SIZE = 24;
+
+    let lanes = [];
+    let frame = 0;
+    let speedFactor = 1;
+    let score = 0;
+
+    // player starts near bottom center
+    let player = { x: canvas.width/2 - PLAYER_SIZE/2, y: canvas.height - ROW_HEIGHT/2 - PLAYER_SIZE/2, size: PLAYER_SIZE };
+
+    function initLanes() {
+      lanes = [];
+      for (let i=0;i<LANES;i++){
+        // lane y from bottom up
+        let y = canvas.height - ROW_HEIGHT*(i+1);
+        let dir = (i%2===0) ? 1 : -1;
+        let speed = 1.0 + Math.random()*1.2;
+        let density = 2 + Math.floor(Math.random()*3);
+        lanes.push({ y, dir, speed, cars:[], density });
+        // create cars
+        for (let c=0;c<density;c++){
+          let w = 40 + Math.random()*60;
+          let x = Math.random()*canvas.width;
+          lanes[i].cars.push({ x, w, color: randomColor() });
+        }
+      }
+    }
+
+    function randomColor(){
+      const palette = ['#e33','#fb7','#3bd','#6f3','#f66','#8ad','#f9a'];
+      return palette[Math.floor(Math.random()*palette.length)];
+    }
+
+    function drawBackground(){
+      // grass rows at top and bottom
+      ctx.fillStyle = '#2d8f3a';
+      ctx.fillRect(0,0,canvas.width,ROW_HEIGHT/2);
+      ctx.fillRect(0,canvas.height-ROW_HEIGHT/2,canvas.width,ROW_HEIGHT/2);
+    }
+
+    function drawLanes(){
+      for (let lane of lanes){
+        // road stripe
+        ctx.fillStyle = '#333';
+        ctx.fillRect(0, lane.y - ROW_HEIGHT/2 + 10, canvas.width, ROW_HEIGHT - 20);
+        // center line
+        for(let x=0;x<canvas.width;x+=40){
+          ctx.fillStyle = '#ddd';
+          ctx.fillRect(x + (lane.dir===1?0:20), lane.y-2, 30,4);
+        }
+        // cars
+        for (let car of lane.cars){
+          ctx.fillStyle = car.color;
+          ctx.fillRect(car.x, lane.y - 18, car.w, 36);
+        }
+      }
+    }
+
+    function updateCars(){
+      for (let lane of lanes){
+        for (let car of lane.cars){
+          car.x += lane.speed * lane.dir * speedFactor;
+          if (lane.dir===1 && car.x > canvas.width + 80) car.x = -100 - Math.random()*200;
+          if (lane.dir===-1 && car.x < -200) car.x = canvas.width + 100 + Math.random()*200;
+        }
+      }
+    }
+
+    function drawPlayer(){
+      ctx.fillStyle = '#ffd166';
+      ctx.fillRect(player.x, player.y, player.size, player.size);
+      // simple eyes
+      ctx.fillStyle = '#222';
+      ctx.fillRect(player.x+6, player.y+8,4,4);
+      ctx.fillRect(player.x+player.size-10, player.y+8,4,4);
+    }
+
+    function checkCollision(){
+      for (let lane of lanes){
+        for (let car of lane.cars){
+          if (player.y + player.size > lane.y - 18 && player.y < lane.y + 18){
+            if (player.x < car.x + car.w && player.x + player.size > car.x){
+              // collision -> game over
+              alert('Crashed! Score: ' + score);
+              location.reload();
+            }
+          }
+        }
+      }
+    }
+
+    function handleWinRow(){
+      // if player reaches top grass row
+      if (player.y < ROW_HEIGHT/2){
+        score++;
+        scoreEl.textContent = score;
+        // reset player to bottom
+        player.y = canvas.height - ROW_HEIGHT/2 - player.size/2;
+        // increase difficulty slightly
+        speedFactor += 0.08;
+        // shuffle lanes speeds and add occasional car
+        for (let lane of lanes) lane.speed *= (1 + Math.random()*0.08);
+      }
+    }
+
+    // controls: arrow keys or WASD
+    document.addEventListener('keydown', e => {
+      if (e.key === 'ArrowUp' || e.key === 'w') player.y -= ROW_HEIGHT;
+      if (e.key === 'ArrowDown' || e.key === 's') player.y += ROW_HEIGHT;
+      if (e.key === 'ArrowLeft' || e.key === 'a') player.x -= ROW_HEIGHT/2;
+      if (e.key === 'ArrowRight' || e.key === 'd') player.x += ROW_HEIGHT/2;
+      // clamp
+      player.x = Math.max(0, Math.min(canvas.width - player.size, player.x));
+      player.y = Math.max(0, Math.min(canvas.height - player.size, player.y));
+    });
+
+    function loop(){
+      frame++;
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      drawBackground();
+      drawLanes();
+      updateCars();
+      drawPlayer();
+      checkCollision();
+      handleWinRow();
+      requestAnimationFrame(loop);
+    }
+
+    // initial setup
+    initLanes();
+    loop();
+
+  </script>
+</body>
+</html>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>MiniCraftLite</title>
+  <style>
+    body { margin:0; background:#0b1220; color:#fff; font-family:Arial,Helvetica,sans-serif; display:flex; flex-direction:column; align-items:center; padding:16px; }
+    #top { display:flex; gap:12px; align-items:center; margin-bottom:8px; }
+    #palette button { padding:8px 12px; border-radius:6px; border:none; cursor:pointer; }
+    #grid { background:#87b96b; border:6px solid #123249; width:640px; height:480px; display:block; }
+    #instructions { color:#9fb6d8; font-size:14px; margin-top:8px; }
+  </style>
+</head>
+<body>
+  <div id="top">
+    <div id="palette">
+      <button data-id="1" style="background:#6b4f2f;color:white">Dirt</button>
+      <button data-id="2" style="background:#8ea0c6;color:white">Stone</button>
+      <button data-id="3" style="background:#f2d57a;color:#111">Sand</button>
+      <button data-id="0" style="background:#333;color:white">Eraser</button>
+    </div>
+    <div>
+      <button id="save">Save</button>
+      <button id="load">Load</button>
+      <button id="clear">Clear</button>
+    </div>
+  </div>
+
+  <canvas id="grid" width="640" height="480"></canvas>
+  <div id="instructions">Click to place block. Right-click to remove. Use palette to choose block. Save/Load stores in browser localStorage.</div>
+
+  <script>
+    const canvas = document.getElementById('grid');
+    const ctx = canvas.getContext('2d');
+    const palette = document.getElementById('palette');
+    const saveBtn = document.getElementById('save');
+    const loadBtn = document.getElementById('load');
+    const clearBtn = document.getElementById('clear');
+
+    const COLS = 32;
+    const ROWS = 24;
+    const TILE = 20;
+
+    // grid stores block ids: 0 = empty, 1 = dirt, 2 = stone, 3 = sand
+    let grid = new Array(ROWS).fill(0).map(()=> new Array(COLS).fill(0));
+    let selected = 1;
+
+    function drawGrid(){
+      for (let r=0;r<ROWS;r++){
+        for (let c=0;c<COLS;c++){
+          const id = grid[r][c];
+          let color = '#67a44b'; // default background/grass
+          if (id===1) color = '#6b4f2f';
+          if (id===2) color = '#8ea0c6';
+          if (id===3) color = '#f2d57a';
+          if (id===0) color = '#67a44b';
+          ctx.fillStyle = color;
+          ctx.fillRect(c*TILE, r*TILE, TILE, TILE);
+          // draw subtle grid
+          ctx.strokeStyle = 'rgba(0,0,0,0.05)';
+          ctx.strokeRect(c*TILE, r*TILE, TILE, TILE);
+        }
+      }
+    }
+
+    canvas.addEventListener('mousedown', e => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const c = Math.floor(x / TILE);
+      const r = Math.floor(y / TILE);
+      if (e.button === 2) { // right click = remove
+        grid[r][c] = 0;
+      } else {
+        grid[r][c] = selected;
+      }
+      drawGrid();
+    });
+
+    // disable context menu on canvas so right-click works
+    canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+    palette.addEventListener('click', e => {
+      const b = e.target;
+      if (b.dataset && b.dataset.id !== undefined) {
+        selected = Number(b.dataset.id);
+        // highlight selected - simple
+        Array.from(palette.children).forEach(btn => btn.style.outline = '');
+        b.style.outline = '3px solid #fff7';
+      }
+    });
+
+    saveBtn.addEventListener('click', () => {
+      localStorage.setItem('minicraft_grid', JSON.stringify(grid));
+      alert('Saved locally!');
+    });
+
+    loadBtn.addEventListener('click', () => {
+      const data = localStorage.getItem('minicraft_grid');
+      if (data) { grid = JSON.parse(data); drawGrid(); alert('Loaded!'); } else alert('Nothing saved yet.');
+    });
+
+    clearBtn.addEventListener('click', () => {
+      if (confirm('Clear the world?')) {
+        grid = new Array(ROWS).fill(0).map(()=> new Array(COLS).fill(0));
+        drawGrid();
+      }
+    });
+
+    // initial draw
+    drawGrid();
+  </script>
 </body>
 </html>
