@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Austin's Game Hub All-in-One</title>
+  <style>
+    body { background:#0b1220; color:white; font-family:Arial, sans-serif; text-align:center; padding:10px; }
+    h1 { margin-bottom:10px; }
+    canvas { border:4px solid #123249; margin:20px 0; }
+    #game-buttons button { padding:10px 16px; margin:5px; cursor:pointer; border:none; border-radius:6px; background:#2b6ea3; color:white; font-weight:bold; }
+    #game-buttons button.active { background:#3b86cf; }
+    #minicraft-top { display:flex; gap:12px; justify-content:center; margin-bottom:8px; }
+    #minicraft-palette button { padding:6px 10px; border:none; border-radius:4px; cursor:pointer; }
+  </style>
+</head>
+<body>
+  <h1>Austin's Game Hub All-in-One</h1>
+  <div id="game-buttons">
+    <button id="btn-crossy" class="active">Pixel Crossing (Crossy-style)</button>
+    <button id="btn-minicraft">MiniCraftLite (Block Sandbox)</button>
+  </div>
+
+  <!-- Pixel Crossing Canvas -->
+  <canvas id="crossy" width="400" height="600"></canvas>
+
+  <!-- MiniCraft Canvas -->
+  <div id="minicraft-container" style="display:none;">
+    <div id="minicraft-top">
+      <div id="minicraft-palette">
+        <button data-id="1" style="background:#6b4f2f;color:white">Dirt</button>
+        <button data-id="2" style="background:#8ea0c6;color:white">Stone</button>
+        <button data-id="3" style="background:#f2d57a;color:#111">Sand</button>
+        <button data-id="0" style="background:#333;color:white">Eraser</button>
+      </div>
+      <div>
+        <button id="save">Save</button>
+        <button id="load">Load</button>
+        <button id="clear">Clear</button>
+      </div>
+    </div>
+    <canvas id="minicraft" width="640" height="480"></canvas>
+    <div style="color:#9fb6d8;font-size:14px;">Click to place block. Right-click to remove. Use palette to choose block. Save/Load stores in browser localStorage.</div>
+  </div>
+
+  <script>
+    // ----- SWITCH GAMES -----
+    const btnCrossy = document.getElementById('btn-crossy');
+    const btnMini = document.getElementById('btn-minicraft');
+    const crossyCanvas = document.getElementById('crossy');
+    const miniContainer = document.getElementById('minicraft-container');
+
+    btnCrossy.onclick = () => {
+      crossyCanvas.style.display = 'block';
+      miniContainer.style.display = 'none';
+      btnCrossy.classList.add('active');
+      btnMini.classList.remove('active');
+    };
+    btnMini.onclick = () => {
+      crossyCanvas.style.display = 'none';
+      miniContainer.style.display = 'block';
+      btnMini.classList.add('active');
+      btnCrossy.classList.remove('active');
+    };
+
+    // ================= PIXEL CROSSING =================
+    const canvas = crossyCanvas;
+    const ctx = canvas.getContext('2d');
+
+    const ROW_HEIGHT = 60;
+    const LANES = 8;
+    const PLAYER_SIZE = 24;
+    let lanes = [], frame = 0, speedFactor = 1, score = 0;
+    let player = { x: canvas.width/2 - PLAYER_SIZE/2, y: canvas.height - ROW_HEIGHT/2 - PLAYER_SIZE/2, size: PLAYER_SIZE };
+
+    function initLanes(){
+      lanes = [];
+      for(let i=0;i<LANES;i++){
+        let y = canvas.height - ROW_HEIGHT*(i+1);
+        let dir = (i%2===0)?1:-1;
+        let speed = 1.0 + Math.random()*1.2;
+        let density = 2 + Math.floor(Math.random()*3);
+        lanes.push({y, dir, speed, cars:[], density});
+        for(let c=0;c<density;c++){
+          let w = 40 + Math.random()*60;
+          let x = Math.random()*canvas.width;
+          lanes[i].cars.push({x, w, color: randomColor()});
+        }
+      }
+    }
+
+    function randomColor(){
+      const palette = ['#e33','#fb7','#3bd','#6f3','#f66','#8ad','#f9a'];
+      return palette[Math.floor(Math.random()*palette.length)];
+    }
+
+    function drawBackground(){
+      ctx.fillStyle = '#2d8f3a';
+      ctx.fillRect(0,0,canvas.width,ROW_HEIGHT/2);
+      ctx.fillRect(0,canvas.height-ROW_HEIGHT/2,canvas.width,ROW_HEIGHT/2);
+    }
+
+    function drawLanes(){
+      for(let lane of lanes){
+        ctx.fillStyle = '#333';
+        ctx.fillRect(0, lane.y - ROW_HEIGHT/2 + 10, canvas.width, ROW_HEIGHT - 20);
+        for(let x=0;x<canvas.width;x+=40){
+          ctx.fillStyle = '#ddd';
+          ctx.fillRect(x + (lane.dir===1?0:20), lane.y-2, 30,4);
+        }
+        for(let car of lane.cars){
+          ctx.fillStyle = car.color;
+          ctx.fillRect(car.x, lane.y-18, car.w,36);
+        }
+      }
+    }
+
+    function updateCars(){
+      for(let lane of lanes){
+        for(let car of lane.cars){
+          car.x += lane.speed*lane.dir*speedFactor;
+          if(lane.dir===1 && car.x>canvas.width+80) car.x = -100 - Math.random()*200;
+          if(lane.dir===-1 && car.x<-200) car.x = canvas.width+100 + Math.random()*200;
+        }
+      }
+    }
+
+    function drawPlayer(){
+      ctx.fillStyle = '#ffd166';
+      ctx.fillRect(player.x, player.y, player.size, player.size);
+      ctx.fillStyle = '#222';
+      ctx.fillRect(player.x+6, player.y+8,4,4);
+      ctx.fillRect(player.x+player.size-10, player.y+8,4,4);
+    }
+
+    function checkCollision(){
+      for(let lane of lanes){
+        for(let car of lane.cars){
+          if(player.y+player.size>lane.y-18 && player.y<lane.y+18){
+            if(player.x<car.x+car.w && player.x+player.size>car.x){
+              alert('Crashed! Score: '+score);
+              location.reload();
+            }
+          }
+        }
+      }
+    }
+
+    function handleWinRow(){
+      if(player.y<ROW_HEIGHT/2){
+        score++;
+        player.y = canvas.height - ROW_HEIGHT/2 - player.size/2;
+        speedFactor += 0.08;
+        for(let lane of lanes) lane.speed*=(1+Math.random()*0.08);
+      }
+    }
+
+    document.addEventListener('keydown', e=>{
+      if(e.key==='ArrowUp'||e.key==='w') player.y-=ROW_HEIGHT;
+      if(e.key==='ArrowDown'||e.key==='s') player.y+=ROW_HEIGHT;
+      if(e.key==='ArrowLeft'||e.key==='a') player.x-=ROW_HEIGHT/2;
+      if(e.key==='ArrowRight'||e.key==='d') player.x+=ROW_HEIGHT/2;
+      player.x = Math.max(0, Math.min(canvas.width-PLAYER_SIZE, player.x));
+      player.y = Math.max(0, Math.min(canvas.height-PLAYER_SIZE, player.y));
+    });
+
+    function loop(){
+      frame++;
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      drawBackground();
+      drawLanes();
+      updateCars();
+      drawPlayer();
+      checkCollision();
+      handleWinRow();
+      requestAnimationFrame(loop);
+    }
+
+    initLanes();
+    loop();
+
+    // ================= MINI CRAFT =================
+    const miniCanvas = document.getElementById('minicraft');
+    const miniCtx = miniCanvas.getContext('2d');
+    const COLS = 32, ROWS = 24, TILE = 20;
+    let grid = new Array(ROWS).fill(0).map(()=>new Array(COLS).fill(0));
+    let selected = 1;
+
+    function drawMiniGrid(){
+      for(let r=0;r<ROWS;r++){
+        for(let c=0;c<COLS;c++){
+          let id = grid[r][c];
+          let color = '#67a44b';
+          if(id===1) color='#6b4f2f';
+          if(id===2) color='#8ea0c6';
+          if(id===3) color='#f2d57a';
+          if(id===0) color='#67a44b';
+          miniCtx.fillStyle=color;
+          miniCtx.fillRect(c*TILE,r*TILE,TILE,TILE);
+          miniCtx.strokeStyle='rgba(0,0,0,0.05)';
+          miniCtx.strokeRect(c*TILE,r*TILE,TILE,TILE);
+        }
+      }
+    }
+    drawMiniGrid();
+
+    miniCanvas.addEventListener('mousedown', e=>{
+      e.preventDefault();
+      const rect = miniCanvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const c = Math.floor(x/TILE);
+      const r = Math.floor(y/TILE);
+      if(e.button===2) grid[r][c]=0; else grid[r][c]=selected;
+      drawMiniGrid();
+    });
+    miniCanvas.addEventListener('contextmenu', e=>e.preventDefault());
+
+    document.querySelectorAll('#minicraft-palette button').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        selected = Number(btn.dataset.id);
+        document.querySelectorAll('#minicraft-palette button').forEach(b=>b.style.outline='');
+        btn.style.outline='3px solid #fff7';
+      });
+    });
+
+    document.getElementById('save').addEventListener('click', ()=>{
+      localStorage.setItem('minicraft_grid', JSON.stringify(grid));
+      alert('Saved locally!');
+    });
+    document.getElementById('load').addEventListener('click', ()=>{
+      const data = localStorage.getItem('minicraft_grid');
+      if(data){grid=JSON.parse(data); drawMiniGrid(); alert('Loaded!');} else alert('Nothing saved yet.');
+    });
+    document.getElementById('clear').addEventListener('click', ()=>{
+      if(confirm('Clear the world?')){
+        grid = new Array(ROWS).fill(0).map(()=>new Array(COLS).fill(0));
+        drawMiniGrid();
+      }
+    });
+  </script>
+</body>
+</html>
