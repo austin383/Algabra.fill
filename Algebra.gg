@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Austin's Game Hub</title>
+  <style>
+    body { text-align:center; font-family:Arial; }
+    a { display:block; margin:20px; font-size:24px; }
+  </style>
+</head>
+<body>
+  <h1>Welcome to Austin's Game Hub</h1>
+
+  <a href="flappy.html">Play Flappy Bird</a>
+  <a href="fnaf.html">Play FNAF Mini Game</a>
+</body>
+</html>
